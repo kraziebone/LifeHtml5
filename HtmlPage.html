@@ -1,0 +1,249 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .noselect {
+            -webkit-touch-callout: none; /* iOS Safari */
+            -webkit-user-select: none; /* Chrome/Safari/Opera */
+            -khtml-user-select: none; /* Konqueror */
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently
+                                  not supported by any browser */
+        }
+
+
+      
+    </style>
+    <title></title>
+</head>
+
+<body>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+    
+        <script>
+            var run = 0;
+            var boxHeight = 20;
+            var boxWidth = 20;
+
+            var boxCountWidth = 30;
+            var boxCountHeight = 20;
+
+            var intervalId = [];
+
+            //gets the equivalent index value for any box. ex. 9x9 box getIndex(-1)=8
+            function getIndex(index) {
+                var retVal = index;
+                if (index < 0 || index > (boxCountWidth * boxCountHeight - 1)) {
+                    retVal = index % (boxCountWidth * boxCountHeight);
+                    if (retVal < 0) {
+                        retVal += (boxCountWidth * boxCountHeight);
+                    }
+                }
+                return retVal;
+            }
+
+            //returns an 8 element array with all the neighbors of a given index
+            function neighbors(indx) {
+                var neighbors = [8]; //always 8 neighbors
+                neighbors[0] = getIndex(indx - boxCountWidth - 1);
+                neighbors[1] = getIndex(indx - boxCountWidth);
+                neighbors[2] = getIndex(indx - boxCountWidth + 1);
+
+                neighbors[3] = getIndex(indx - 1);
+                neighbors[4] = getIndex(indx + 1);
+
+                neighbors[5] = getIndex(indx + boxCountWidth - 1);
+                neighbors[6] = getIndex(indx + boxCountWidth);
+                neighbors[7] = getIndex(indx + boxCountWidth + 1);
+
+                return neighbors;
+            }
+
+            //counts the number of 'on' boxes around a given index
+            function countNeighbors(elementStatusArray, indx) {
+                var neighborArray = neighbors(indx);
+
+                var count = 0;
+                for (var ix = 0; ix < 8 ; ix++) {
+                    if (elementStatusArray[neighborArray[ix]] == 1) {
+                        count++;
+                    }
+                }
+                return count;
+            }
+
+            //fills in a box using the index value
+            function fill(index, color) {
+                var boarder = 1.10;
+                var c = $('#id' + index)[0];
+                var ctx = c.getContext("2d");
+                c.style = "border:0.5px solid #000000;";
+                ctx.fillStyle = color;
+                ctx.fillRect(boarder, boarder, boxWidth - boarder * 2, boxHeight - boarder * 2);
+
+            }
+
+            //toggles a box - if the box is 'on' it turns it off and vise versa
+            function toggle(id, elementStatusArray) {
+                var ctx = $('#id' + id)[0].getContext('2d');
+                fill(id, (ctx.fillStyle == "#000000" ? "#FFFFFF" : "#000000"));
+                console.log("Turning %s %s!", id.toString(), (ctx.fillStyle == "#000000" ? "off" : "on"));
+                elementStatusArray[id] = !elementStatusArray[id];
+            }
+
+            //draws a rectangle of a given id, width and height
+            function drawRectangle(id, height, width) {
+                document.write('<canvas id="' + id + '" width="' + width.toString() + '" height="' + height.toString() + '" style="border:0.5px solid #000000; "></canvas>');
+            }
+
+            //prints an array values to console - debug purposes
+            function printArray(array, size, name) {
+                if (name == null) {
+                    name = "array";
+                }
+                for (var ix = 0; ix < array.length; ix++) {
+                    console.log("%s[%s]: %s", name.toString(), ix.toString(), array[ix].toString());
+                }
+            }
+
+            //refreshes the elementStatus array. Returns 1 if the array is different than the previous, else it returns 0
+            function refresh(elementStatus) {
+                var newIndexStatus = [boxCountWidth * boxCountHeight];
+                //calculate new box statuses
+                for (ix = 0; ix < boxCountHeight * boxCountWidth; ix++) {
+                    var livingNeighbors = countNeighbors(elementStatus, ix);
+                    newIndexStatus[ix] = elementStatus[ix];
+                    if (livingNeighbors == 3) {
+                        newIndexStatus[ix] = 1;
+                    }
+                    else if (livingNeighbors != 2) {
+                        newIndexStatus[ix] = 0;
+                    }
+
+                }
+                //copy them into the old elementStatus
+                var sameSame = 1;
+                for (var ix = 0; ix < boxCountHeight * boxCountWidth; ix++) {
+                    if (elementStatus[ix] != newIndexStatus[ix]) {
+                        elementStatus[ix] = newIndexStatus[ix];
+                        sameSame = 0;
+                    }
+
+                    fill(ix, elementStatus[ix] == 0 ? "#FFFFFF" : "#000000");
+                }
+                return (sameSame == 1 ? false : true);
+            } //end refresh
+
+            //draws the basic html 
+            function drawBasic() {
+                //create the array of boxes
+                document.write('<div class="noselect" style="line-height:1%;">');
+                // console.clear();
+                //redraw the whole thing
+                for (ix = 0; ix < boxCountHeight; ix++) {
+                    for (jx = 0; jx < boxCountWidth; jx++) {
+                        var index = (ix * boxCountWidth) + jx;
+                        drawRectangle("id" + index.toString(), boxHeight, boxWidth);
+                        fill(index, "#FFFFFF");
+                    }
+                    document.write("<br/>");
+                }
+                document.write('<button type="button" id="startButton">Go</button>');
+                document.write('<button type="button" id="stopButton">Stop</button>');
+                document.write('<button type="button" id="clearButton">Clear</button>');
+                document.write('</div>');
+
+
+
+            } //end draw
+
+            //stops all intervals
+            function stopProgram(intIdArr)
+            {
+                for (var ix = 0; ix < intIdArr.length ; ix++)
+                    clearInterval(intIdArr[ix]);
+            }
+
+            function initElementStatus(e) {
+                for (ix = 0; ix < boxCountHeight * boxCountWidth; ix++) {
+                    var idString = "id" + ix.toString();
+                    e[ix] = 0;
+                }
+                return e;
+            }
+
+            var init = 0;
+            function runProgram(elementStatus) {
+                var status = [boxCountWidth * boxCountHeight];
+                var testElements = [boxCountWidth * boxCountHeight];
+                if (init == 0) {
+                    drawBasic();
+                    elementStatus = initElementStatus(status);
+                }
+
+                init = 1;
+                if (refresh(elementStatus) == false)
+                {
+                    //fade the elements 
+                    for (var ix = 0; ix < 3; ix++)
+                    refresh(elementStatus);
+                    stopProgram(intervalId);
+                }
+
+                for (ix = 0; ix < boxCountHeight * boxCountWidth; ix++) {
+                    testElements[ix] = $('#id' + ix)[0]; //same as getElementById(id+ix);
+                    (function anon(ix) {
+                        testElements[ix].onclick = function () {
+                            toggle(ix, elementStatus);
+                        }
+                    })(ix);
+                }
+
+                $('#startButton')[0].onclick = function () {
+                    intervalId[intervalId.length] = setInterval(function () {
+                        runProgram(elementStatus);
+                    }, 300);
+                };
+
+                $('#stopButton')[0].onclick = function () {
+                    stopProgram(intervalId);
+                };
+
+                $('#clearButton')[0].onclick = function () {
+                    elementStatus = initElementStatus(status);
+                    stopProgram(intervalId);
+                    refresh(elementStatus);
+                    refresh(elementStatus);
+                    refresh(elementStatus);
+                };
+                
+
+            }//end runProgram
+
+
+
+            //window.onload = function () {
+                var winHeight = $(window).height();   // returns height of browser viewport
+
+                console.log("win height: %s", winHeight.toString());
+
+
+
+                var docHeight = $(document).height(); // returns height of HTML document
+                console.log("doc height: %s", docHeight.toString());
+
+                var winWidth = $(window).width();   // returns width of browser viewport
+                console.log("win width: %s", winWidth.toString());
+                var docWidth = $(document).width(); // returns width of HTML document
+                console.log("win width: %s", docWidth.toString());
+
+                $(".yourdiv").find("*").css({ userSelect: 'none' });
+                boxCountWidth = parseInt(winWidth / 30);
+                boxCountHeight = parseInt(winHeight / 25);
+                runProgram();
+
+  //          };
+        </script>
+</body>
+</html>
